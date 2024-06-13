@@ -6,3 +6,6 @@
  - `.\venv\Scripts\activate` - Открыть виртуальное окружение на Windows
  - `source venv/bin/activate` - Открыть виртуальное окружение на Linux/Mac
  - `pip install -r req.txt` - Скачать зависимости
+ 
+## Запуск
+ - `python run.py`
