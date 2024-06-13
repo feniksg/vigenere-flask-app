@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet"> 
+    <script src="{{ url_for('static', filename='js/global.js') }}"></script>
+
+    <script type="text/javascript" charset="utf-8">
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const socket = io.connect('http://' + document.domain + ':' + location.port);
+
+            let authCookie = getCookie('auth')
+
+            
+
+
+            socket.on('connect', function() {
+                if (authCookie !== 'not-found') {
+                    socket.emit('usersendmessage', {token: authCookie, type:'check'})
+                }
+                else {socket.send('Unauthorized User');}
+            });
+
+            socket.on('check', function(msg) {
+                if (msg.result == true){
+                    window.location.href = "/chat"
+                }
+            });
+
+            socket.on('login', function(msg) {
+                let tokenDecrypted;
+                if (msg.status === 200) {
+                    tokenDecrypted = vigenereDecrypt(msg.token, document.getElementById('password').value);
+                    setCookie('auth', tokenDecrypted, { expires: 24 * 60 * 60, path: '/' })
+                    setCookie('username', msg.username, { expires: 24 * 60 * 60, path: '/'})
+                    window.location.href = '/chat';
+                }
+                else {
+                    document.getElementById('login').disabled = false;
+                    document.getElementById('password').disabled = false;
+                    alert('Неверный логин или пароль')
+                }
+            });
+
+            document.getElementById('submit').onclick = async function() {
+                const login = document.getElementById('login').value;
+                const password = document.getElementById('password').value;
+                document.getElementById('login').disabled = true;
+                document.getElementById('password').disabled = true;
+                if (login !== "" && password !== "") {
+                    const hash = await getPasswordHash(password)
+                    socket.emit('usersendmessage',{
+                            login: login,
+                            password: hash,
+                            type: 'login'
+                    });
+                }
+                else {
+                    alert('Логин и пароль не могут быть пустыми')
+                }
+            };
+
+            
+        });
+    </script>
+</head>
+<body>
+    
+    <div class="login-frame">
+        <label for="login" class="montserrat custom-label">Логин</label>
+        <input type="text" id="login" class="input-field">
+        <label for="password" class="montserrat custom-label">Пароль</label>
+        <input type="password" id="password" class="input-field">
+        <div class="button-block">
+            <div id="submit" class="submit">Войти</div>
+        </div>
+    </div>
+
+</body>
+<style>
+    
+    .button-block{
+        margin-top: 10px;
+        display: flex;
+        justify-content: center;
+    }
+    .montserrat{
+        font-optical-sizing: auto;
+        font-weight: 400;
+        font-style: normal;
+    }
+    .custom-label {
+        font-size: 14pt;
+        margin-bottom: 10px;
+    }
+    .input-field {
+        margin-bottom: 16px;
+        border: 1px solid #69696952;
+        border-radius: 10px;
+        height: 100px;
+        font-size: 13pt;
+        padding: 10px;
+    }
+    .submit {
+        text-align: center;
+        border: 1px solid #69696952;
+        padding: 5px 10px;
+        font-size: 16pt;
+        border-radius: 10px;
+        width: 100px;
+        cursor: pointer;
+        box-sizing: border-box;
+    }
+    .submit:hover {
+        box-shadow: 0px 0px 0px 1.5px black;
+    }
+    body {
+        font-family: "Montserrat", sans-serif;
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+    }
+    .login-frame {
+        border: 1px solid #69696952;
+        display: flex;
+        flex-direction: column;
+        padding: 60px 30px;
+        border-radius: 10px;
+        width: 300px;
+        height: 200px;
+    }
+</style>
+
+
+</html>

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/global.css')}}">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='js/global.js') }}"></script>
+
+    <script type="text/javascript" charset="utf-8">
+        function process_income_message(msg, list, auth){
+                const text = vigenereDecrypt(msg.text, auth)
+                let messageDiv = document.createElement('div')
+                messageDiv.className ='message';
+                let senderP = document.createElement('p');
+                senderP.className = 'message-sender';
+                senderP.textContent = `Отправитель: ${msg.username}`
+                let textP = document.createElement('p');
+                textP.className = 'message-text';
+                textP.textContent = text;
+
+                // Создание элемента времени сообщения
+                let timeP = document.createElement('p');
+                timeP.className = 'message-time';
+                let tempDate = new Date(msg.timestamp)
+                timeP.textContent = `${String(tempDate.getHours()).padStart(2,'0')}:${String(tempDate.getMinutes()).padStart(2,'0')}`;
+
+                // Добавление всех элементов в контейнер сообщения
+                messageDiv.appendChild(senderP);
+                messageDiv.appendChild(textP);
+                messageDiv.appendChild(timeP);
+                list.appendChild(messageDiv)
+        }
+
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const socket = io.connect('http://' + document.domain + ':' + location.port);
+            let messageList = document.getElementById('message-list')
+            const username = getCookie('username')
+            const authCookie = getCookie('auth')
+            
+            let ulable = document.getElementById('username-label')
+            ulable.textContent = username;
+            messageList.scrollTop = messageList.scrollHeight;
+
+            if (authCookie !== 'not-found') {
+                socket.emit('usersendmessage', {token: authCookie, type:'check'})
+            }
+
+            socket.on('check', function(msg) {
+                if (!msg.result){
+                    window.location.href = '/'
+                }
+                else {
+                    socket.emit('history', {username: username})
+                }
+            });
+
+            socket.on('gethistory', function(data) {
+                console.log('ИСТОРИЯ')
+                console.log(data)
+                data.history.forEach(msg => {
+                    process_income_message(msg, messageList, authCookie)
+                });
+            })
+
+            socket.on('getmessage', function(msg) {
+                console.log('Пришло сообщение', msg)
+                process_income_message(msg, messageList, authCookie)
+            });
+
+            
+            document.getElementById('logout').onclick = function(){
+                deleteCookie('auth')
+                deleteCookie('username')
+                window.location.href = '/'
+            }
+
+            document.getElementById('send').onclick = function(){
+                console.log('Жмяк')
+                let input = document.getElementById('message-input')
+                socket.emit('usersendmessage', {
+                    timestamp: new Date().getTime(),
+                    text: vigenereEncrypt(input.value, authCookie),
+                    username: username,
+                    type: 'send'
+                });
+                console.log(vigenereEncrypt(input.value, authCookie))
+                input.value = "";
+            } 
+        });
+    </script>
+</head>
+<body>
+        <div class="header">
+            <h3>{{ page_title }}</h3>
+            <div style="display: flex;">
+                <div class="username">
+                    <p id="username-label"></p>
+                </div>
+                <div class="logout" id="logout">
+                    <p>Выход</p>
+                    <img src="{{ url_for('static', filename='img/chat/logout.svg') }}" alt="">
+                </div>
+            </div>
+        </div>
+        <div class="main-frame">
+            <div class="message-list" id="message-list">
+                
+            </div>
+            <div class="controls">
+                <textarea type="text" name="message-input" id="message-input"></textarea>
+                <div class="send" id="send">
+                    <img src="{{ url_for('static', filename='img/chat/send.svg') }}" alt="">
+                </div>
+            </div>
+        </div>
+</body>
+<style>
+    .username {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+    .username > p {
+        margin: 0;
+        margin-right: 20px;
+        font-size: 14pt;
+    }
+    .main-frame {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .message {
+        background-color: var(--main-bg-color);
+        padding: 5px;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        position: relative;
+    }
+    .message-text {
+        margin: 0px;
+        margin-top: 10px;
+    }
+    .message-time {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+        font-size: 8pt;
+        color: #69696970;
+        margin: 0;
+    }
+    .message-sender {
+        font-size: 10pt;
+        color: #69696970;
+        margin: 0px;
+    }
+    .controls {
+        width: 50%;
+        display: flex;
+        justify-content: space-between;
+    }
+    .send {
+        border-radius: 50%;
+        background-color: var(--chat-bg-color);
+        margin-right: 10px;
+        min-width: 43px;
+        min-height: 43px;
+        max-width: 43px;
+        max-height: 43px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+    }
+    .send>img {
+        height: 24px;
+        width: 24px;
+    }
+    .controls>textarea {
+        width: 100%;
+        margin-right: 10px;
+        border-radius: 20px;
+        height: 30px;
+        padding-left: 20px;
+        padding-top: 10px;
+        font-size: 14pt;
+        resize: none;
+    }
+    .controls>textarea::-webkit-scrollbar{
+        display: none;
+    }
+    .message-list {
+        margin: 30px 0;
+        padding: 10px 40px;
+        width: 50%;
+        background-color: var(--chat-bg-color);
+        max-height: 70vh;
+        overflow-y: scroll;
+        border: 1px solid var(--main-border-color);
+        border-radius: 20px;
+        min-height: 70vh;
+    }
+    .message-list::-webkit-scrollbar {
+        display: none;
+    }
+    body {
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+    }
+    .header {
+        display: flex;
+        width: 100%;
+        justify-content: space-between;
+        border-bottom: 2px solid var(--main-border-color);
+    }
+    h3 {
+        margin-left: 30px;
+    }
+    .logout {
+        margin-right: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+    .logout > img {
+        height: 24px;
+        width: 24px;
+    }
+
+</style>
+</html>
